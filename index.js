@@ -1,79 +1,93 @@
+require('dotenv').config();
 const express = require('express');
+const db = require('./config/db'); // Importar el módulo de conexión
 const app = express();
-const port = 3000;
 
-// Configurar la aplicación para que parsee las solicitudes en formato JSON
+const port = process.env.PORT || 3000;
+
 app.use(express.json());
 
-// Arreglo en memoria para simular una colección de datos (Catálogo de libros)
-let libros = [
-    { id: 1, nombre: 'El Quijote', autor: 'Miguel de Cervantes' },
-    { id: 2, nombre: 'Cien Años de Soledad', autor: 'Gabriel García Márquez' },
-    { id: 3, nombre: '1984', autor: 'George Orwell' }
-];
+// Garantizar que la base de datos se conecte al levantar el servidor e imprimir el mensaje
+db.getConnection()
+    .then(connection => {
+        console.log('Conectado exitosamente a la base de datos');
+        connection.release();
+    })
+    .catch(err => console.error('Error al conectar a la base de datos:', err));
 
-// Ruta base (/) que devuelve un mensaje de confirmación
-app.get('/', (req, res) => {
-    res.send('El servidor está en línea y funcionando correctamente.');
-});
-
-// 1. GET /api/recursos: Devuelve el arreglo completo en formato JSON
-app.get('/api/recursos', (req, res) => {
-    res.json(libros);
-});
-
-// 2. GET /api/recursos/:id: Busca un objeto por ID y lo devuelve
-app.get('/api/recursos/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    const libro = libros.find(l => l.id === id);
-    
-    if (!libro) {
-        // Si no existe, devuelve 404 Not Found
-        return res.status(404).json({ mensaje: 'Recurso no encontrado' });
+// 1. GET: Realizar un SELECT FROM
+app.get('/api/recursos', async (req, res) => {
+    try {
+        const [rows] = await db.query('SELECT * FROM libros');
+        res.json(rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ mensaje: 'Internal Server Error' });
     }
-    res.json(libro);
 });
 
-// 3. POST /api/recursos: Agrega un nuevo objeto y devuelve 201 Created
-app.post('/api/recursos', (req, res) => {
-    const nuevoLibro = req.body;
-    
-    // Asignarle un nuevo ID dinámico (el máximo actual + 1)
-    const maxId = libros.length > 0 ? Math.max(...libros.map(l => l.id)) : 0;
-    nuevoLibro.id = maxId + 1;
-    
-    libros.push(nuevoLibro);
-    res.status(201).json(nuevoLibro);
-});
-
-// 4. PUT /api/recursos/:id: Actualiza el objeto en el arreglo y lo devuelve
-app.put('/api/recursos/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    const index = libros.findIndex(l => l.id === id);
-    
-    if (index === -1) {
-        return res.status(404).json({ mensaje: 'Recurso no encontrado' });
+// 2. GET por ID: Realizar un SELECT con WHERE
+app.get('/api/recursos/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [rows] = await db.query('SELECT * FROM libros WHERE id = ?', [id]);
+        
+        if (rows.length === 0) {
+            return res.status(404).json({ mensaje: 'Recurso no encontrado' });
+        }
+        res.json(rows[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ mensaje: 'Internal Server Error' });
     }
-    
-    // Actualiza los datos manteniendo el ID original
-    libros[index] = { ...libros[index], ...req.body, id: id };
-    res.json(libros[index]);
 });
 
-// 5. DELETE /api/recursos/:id: Elimina el objeto y devuelve confirmación
-app.delete('/api/recursos/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    const index = libros.findIndex(l => l.id === id);
-    
-    if (index === -1) {
-        return res.status(404).json({ mensaje: 'Recurso no encontrado' });
+// 3. POST: Realizar un INSERT INTO usando req.body
+app.post('/api/recursos', async (req, res) => {
+    try {
+        const { nombre, autor } = req.body;
+        const [result] = await db.query('INSERT INTO libros (nombre, autor) VALUES (?, ?)', [nombre, autor]);
+        
+        res.status(201).json({ id: result.insertId, nombre, autor });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ mensaje: 'Internal Server Error' });
     }
-    
-    libros.splice(index, 1);
-    res.json({ mensaje: `Recurso con ID ${id} eliminado correctamente` });
 });
 
-// Levantar el servidor en el puerto 3000
+// 4. PUT: Ejecutar un UPDATE
+app.put('/api/recursos/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nombre, autor } = req.body;
+        const [result] = await db.query('UPDATE libros SET nombre = ?, autor = ? WHERE id = ?', [nombre, autor, id]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ mensaje: 'Recurso no encontrado' });
+        }
+        res.json({ id, nombre, autor });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ mensaje: 'Internal Server Error' });
+    }
+});
+
+// 5. DELETE: Ejecutar un DELETE FROM
+app.delete('/api/recursos/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [result] = await db.query('DELETE FROM libros WHERE id = ?', [id]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ mensaje: 'Recurso no encontrado' });
+        }
+        res.json({ mensaje: `Recurso con ID ${id} eliminado correctamente` });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ mensaje: 'Internal Server Error' });
+    }
+});
+
 app.listen(port, () => {
     console.log(`Servidor escuchando en http://localhost:${port}`);
 });
