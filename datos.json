@@ -1,0 +1,12 @@
+[
+  {"nombre": "El Alquimista", "autor": "Paulo Coelho"},
+  {"nombre": "Rayuela", "autor": "Julio Cortazar"},
+  {"nombre": "Ficciones", "autor": "Jorge Luis Borges"},
+  {"nombre": "Pedro Paramo", "autor": "Juan Rulfo"},
+  {"nombre": "Aura", "autor": "Carlos Fuentes"},
+  {"nombre": "1984", "autor": "George Orwell"},
+  {"nombre": "Moby Dick", "autor": "Herman Melville"},
+  {"nombre": "Don Quijote", "autor": "Miguel de Cervantes"},
+  {"nombre": "El Principito", "autor": "Antoine de Saint-Exupéry"},
+  {"nombre": "Odisea", "autor": "Homero"}
+]
